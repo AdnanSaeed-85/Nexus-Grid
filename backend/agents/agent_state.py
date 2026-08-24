@@ -58,6 +58,7 @@ class ChildTask(BaseModel):
 
 class SupervisorState(BaseModel):
     parent_question: str = Field(..., min_length=20)
+    is_research_able: bool
     state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
     child_tasks: List[ChildTask] = Field(default_factory=list)
     review_queue: List[str] = Field(default_factory=list)
