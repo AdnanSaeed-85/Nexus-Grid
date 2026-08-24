@@ -13,9 +13,7 @@ class AttemptEntry(BaseModel):
     attempt_number: int = Field(..., ge=1)
     supervisor_feedback: Optional[str] = Field(default=None)
     result: Literal["pending", "approved", "rejected"] = Field(default="pending")
-    submitted_at: str = Field(
-        default_factory=lambda: datetime.now(timezone.utc).isoformat()
-    )
+    submitted_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
 class Attempts(BaseModel):
@@ -44,21 +42,12 @@ class SuccessCriteria(BaseModel):
 # ──────────────────────────────────────────────
 
 class ChildTask(BaseModel):
-    child_task_id: str = Field(
-        default_factory=lambda: str(uuid4())
-    )
+    child_task_id: str = Field(default_factory=lambda: str(uuid4()))
     sub_agent_id: Optional[str] = Field(default=None)
     task: str = Field(...)
     context: str = Field(...)
     success_criteria: SuccessCriteria = Field(...)
-    status: Literal[
-        "pending",
-        "in_progress",
-        "submitted",
-        "approved",
-        "rejected",
-        "done"
-    ] = Field(default="pending")
+    status: Literal["pending", "in_progress", "submitted", "approved", "rejected", "done"] = Field(default="pending")
     attempts: Attempts = Field(default_factory=Attempts)
     final_output: Optional[str] = Field(default=None)
 
@@ -69,15 +58,7 @@ class ChildTask(BaseModel):
 
 class SupervisorState(BaseModel):
     parent_question: str = Field(..., min_length=20)
-    state: Literal[
-        "decompose",
-        "assign",
-        "waiting",
-        "review",
-        "synthesize",
-        "validate",
-        "done"
-    ] = Field(default="decompose")
+    state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
     child_tasks: List[ChildTask] = Field(default_factory=list)
     review_queue: List[str] = Field(default_factory=list)
     approved_outputs: List[str] = Field(default_factory=list)
