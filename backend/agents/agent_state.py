@@ -56,9 +56,11 @@ class ChildTask(BaseModel):
 # SUPERVISOR STATE
 # ──────────────────────────────────────────────
 
+class QueryCheck(BaseModel):
+    is_research_able: bool = Field(default_factory=False)
+
 class SupervisorState(BaseModel):
-    parent_question: str = Field(..., min_length=20)
-    is_research_able: bool
+    parent_question: str = Field(..., min_length=5)
     state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
     child_tasks: List[ChildTask] = Field(default_factory=list)
     review_queue: List[str] = Field(default_factory=list)
@@ -69,6 +71,6 @@ class SupervisorState(BaseModel):
     @field_validator("parent_question")
     @classmethod
     def question_must_be_meaningful(cls, v):
-        if len(v.strip()) < 20:
+        if len(v.strip()) < 5:
             raise ValueError("Parent question too short")
         return v.strip()
