@@ -1,15 +1,8 @@
-from __future__ import annotations
-from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
-from langgraph.graph import START, END, StateGraph
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import List, Optional, Literal
-from uuid import uuid4
 from datetime import datetime, timezone
-
-load_dotenv()
-
-llm = ChatOpenAI(model='gpt-4o-mini')
+from __future__ import annotations
+from uuid import uuid4
 
 
 # ──────────────────────────────────────────────
@@ -67,15 +60,6 @@ class Attempts(BaseModel):
             raise ValueError("Attempt count cannot exceed 5 — max retry limit reached")
         return v
 
-    @model_validator(mode="after")
-    def count_matches_history(self) -> Attempts:
-        if self.count != len(self.history):
-            raise ValueError(
-                f"Attempt count ({self.count}) does not match "
-                f"history length ({len(self.history)})"
-            )
-        return self
-
 
 # ──────────────────────────────────────────────
 # SUCCESS CRITERIA
@@ -112,10 +96,12 @@ class ChildTask(BaseModel):
     """A single decomposed sub-task assigned to one sub-agent."""
 
     child_task_id: str = Field(
+        ...,
         default_factory=lambda: str(uuid4()),
         description="Unique UUID for this child task — auto generated"
     )
     sub_agent_id: Optional[str] = Field(
+        ...,
         default=None,
         description="UUID of the sub-agent assigned to this task — null until assigned"
     )
