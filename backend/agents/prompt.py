@@ -1,13 +1,20 @@
 def question_checker(parent_question: str) -> str:
-    return f"""
-First Read the provided question carefull: {parent_question}
-now after read it, just return boolean values after answer these few below quries in your mind
-1. Is it complex question?
-2. do you thing to answer this question we have to trigger multi-agent system?
+    return f"""You are a query classifier. Analyze the question below and return only `true` or `false`.
 
-if NO, then return just false
-if YES then return just true
-"""
+<question>
+{parent_question}
+</question>
+
+Return `true` if ALL of the following hold:
+- It is actually a question (not a statement or command)
+- It is complex enough to require multi-agent research
+- A single direct answer is not sufficient
+
+Return `false` otherwise.
+
+Respond with only `true` or `false`. No explanation."""
+
+
 
 def supervisor_agent_prompt(parent_question: str) -> str:
     return f"""

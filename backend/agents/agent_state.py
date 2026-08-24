@@ -56,11 +56,13 @@ class ChildTask(BaseModel):
 # SUPERVISOR STATE
 # ──────────────────────────────────────────────
 
-class QueryCheck(BaseModel):
-    is_research_able: bool = Field(default_factory=False)
+class query_analyzer(BaseModel):
+    is_question: bool = Field(default=False)
+    is_research_able: bool = Field(default=False)
 
 class SupervisorState(BaseModel):
     parent_question: str = Field(..., min_length=5)
+    query_yes_no: query_analyzer
     state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
     child_tasks: List[ChildTask] = Field(default_factory=list)
     review_queue: List[str] = Field(default_factory=list)
