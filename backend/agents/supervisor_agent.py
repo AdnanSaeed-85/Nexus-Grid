@@ -11,11 +11,8 @@ structured_llm = llm.with_structured_output(SupervisorState)
 
 def query_analyzer(state: SupervisorState):
     "You are a query analyzer agent who just deeply study the user's provided query"
-
     user_query = state.parent_question
     output = structured_llm.invoke(question_checker(user_query))
-
-    print(output)
     return {"is_research_able": output.is_research_able, 'is_question': output.is_question}
 
 
@@ -24,13 +21,17 @@ def supervisor_agent(state: SupervisorState):
 
     user_query = state.parent_question
     if not state.is_research_able and state.is_question:
-        print(user_query)
         return user_query
 
+    output = structured_llm.invoke(supervisor_agent_prompt(user_query))
+
+    return {
+        "parent_question": user_query,
+        "state": output.state,
+        "child_tasks": output.child_tasks,
+        "n_agents": len(output.child_tasks)
+    }
     
-
-
-
 
 
 graph = StateGraph(SupervisorState)
@@ -46,6 +47,6 @@ output = graph.compile()
 
 output.invoke(
     {
-        'parent_question': 'LLM stands for large language model'
+        'parent_question': "What is the current scientific consensus on training strategies for Large Language Models — covering pre-training, fine-tuning, RLHF, RAG vs fine-tuning tradeoffs, emergent abilities, and where the field is actually heading in 2025?"
     }
 )
