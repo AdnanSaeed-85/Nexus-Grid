@@ -60,6 +60,7 @@ class SupervisorState(BaseModel):
     parent_question: str = Field(..., min_length=5)
     is_question: bool = Field(default=False)
     is_research_able: bool = Field(default=False)
+    agent_type: Literal['simple_agent', 'multi_agent'] = Field(default='simple_agent')
     state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
     child_tasks: List[ChildTask] = Field(default_factory=list)
     n_agents: int = Field(default=0)
