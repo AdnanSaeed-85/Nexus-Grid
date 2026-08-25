@@ -40,4 +40,4 @@ def tavily_search(query: str) -> dict:
     Use this tool when you need to find current, factual, or research-based information from the web.
     """
     client = get_tavily_client()
-    return client
+    return client.search(query)

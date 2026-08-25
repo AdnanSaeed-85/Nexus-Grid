@@ -53,20 +53,39 @@ class ChildTask(BaseModel):
 
 
 # ──────────────────────────────────────────────
-# SUPERVISOR STATE
+# QUERY ANALYZER OUTPUT
+# ──────────────────────────────────────────────
+
+class QueryAnalyzerOutput(BaseModel):
+    is_question: bool = Field(default=False)
+    is_research_able: bool = Field(default=False)
+    agent_type: Literal["simple_agent", "multi_agent"] = Field(default="simple_agent")
+
+
+# ──────────────────────────────────────────────
+# SUPERVISOR STATE  (single source of truth)
 # ──────────────────────────────────────────────
 
 class SupervisorState(BaseModel):
+    # ── entry point ──────────────────────────
     parent_question: str = Field(..., min_length=5)
+
+    # ── set by query_analyzer node ───────────
+    agent_type: Literal["simple_agent", "multi_agent"] = Field(default="simple_agent")
     is_question: bool = Field(default=False)
     is_research_able: bool = Field(default=False)
-    agent_type: Literal['simple_agent', 'multi_agent'] = Field(default='simple_agent')
+
+    # ── set by supervisor_agent node ─────────
     state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
     child_tasks: List[ChildTask] = Field(default_factory=list)
     n_agents: int = Field(default=0)
+
+    # ── set by worker / review nodes ─────────
     review_queue: List[str] = Field(default_factory=list)
     approved_outputs: List[str] = Field(default_factory=list)
     rejected_outputs: List[str] = Field(default_factory=list)
+
+    # ── final output ─────────────────────────
     final_report: Optional[str] = Field(default=None)
 
     @field_validator("parent_question")
