@@ -2,8 +2,16 @@ from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
 from typing import List, Optional, Literal, TypedDict, Annotated
 from datetime import datetime, timezone
-from uuid import uuid4
 import operator
+
+# ──────────────────────────────────────────────
+# QUERY ANALYZER OUTPUT
+# ──────────────────────────────────────────────
+
+class QueryAnalyzerOutput(BaseModel):
+    is_question: bool = Field(default=False)
+    is_research_able: bool = Field(default=False)
+    agent_type: Literal["simple_agent", "multi_agent"] = Field(default="simple_agent")
 
 
 # ──────────────────────────────────────────────
@@ -38,13 +46,22 @@ class SuccessCriteria(BaseModel):
     must_not: str = Field(...)
 
 
+
+
+# ──────────────────────────────────────────────
+# ReviewOutput STATE
+# ──────────────────────────────────────────────
+
+class ReviewOutput(BaseModel):
+    result: Literal["approved", "rejected"]
+    feedback: str
+
+
 # ──────────────────────────────────────────────
 # CHILD TASK
 # ──────────────────────────────────────────────
 
 class ChildTask(BaseModel):
-    child_task_id: str = Field(default_factory=lambda: str(uuid4()))
-    sub_agent_id: Optional[str] = Field(default=None)
     task: str = Field(...)
     context: str = Field(...)
     success_criteria: SuccessCriteria = Field(...)
@@ -54,29 +71,13 @@ class ChildTask(BaseModel):
 
 
 # ──────────────────────────────────────────────
-# QUERY ANALYZER OUTPUT
-# ──────────────────────────────────────────────
-
-class QueryAnalyzerOutput(BaseModel):
-    is_question: bool = Field(default=False)
-    is_research_able: bool = Field(default=False)
-    agent_type: Literal["simple_agent", "multi_agent"] = Field(default="simple_agent")
-
-# ──────────────────────────────────────────────
-# WORKER OUTPUT STATE
-# ──────────────────────────────────────────────
-
-class WorkerOutput(BaseModel):
-    findings: str = Field(...)
-    confidence_score: int = Field(..., ge=0, le=99)
-    limitations: List[str] = Field(default_factory=list)
-    contradictions: List[str] = Field(default_factory=list)
-
-# ──────────────────────────────────────────────
 # SUPERVISOR STATE  (single source of truth)
 # ──────────────────────────────────────────────
 
 class SupervisorState(TypedDict, total=False):
+    supervisor_id: str
+    child_task_id: str
+    sub_agent_id: str
     parent_question: str
     agent_type: Literal["simple_agent", "multi_agent"]
     is_question: bool
@@ -88,3 +89,4 @@ class SupervisorState(TypedDict, total=False):
     approved_outputs: Annotated[List[str], operator.add]
     rejected_outputs: Annotated[List[str], operator.add]
     final_report: Optional[str]
+

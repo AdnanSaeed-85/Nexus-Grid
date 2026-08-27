@@ -107,3 +107,41 @@ def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_nu
       "limitations": ["things you could not verify or did not have enough information about"],
       "contradictions": ["conflicting evidence or genuinely debated points you encountered"]
     }}"""
+
+
+
+def supervisor_review_prompt(task: str, context: str, success_criteria: dict, output: dict, attempt_number: int) -> str:
+  must_cover_points = "\n".join(f"- {point}" for point in success_criteria["must_cover"])
+
+  return f"""You are a strict research supervisor reviewing a worker's findings.
+  
+  ORIGINAL TASK:
+  {task}
+
+  WHY THIS MATTERS:
+  {context}
+
+  THE WORKER MUST HAVE COVERED ALL OF THESE:
+  {must_cover_points}
+
+  THE WORKER MUST NOT HAVE:
+  {success_criteria["must_not"]}
+
+  WORKER OUTPUT:
+  Findings: {output["findings"]}
+  Confidence Score: {output["confidence_score"]}
+  Limitations: {output["limitations"]}
+  Contradictions: {output["contradictions"]}
+
+  EVALUATION RULES:
+  - Approve ONLY if every must_cover point is fully and specifically addressed
+  - Reject if anything is vague, missing, or invented
+  - Reject if the worker violated must_not
+  - If rejected, your feedback must be specific — tell exactly what is missing or wrong so the worker can fix it on retry
+  - If this is attempt {attempt_number} of 5, you must approve regardless
+
+  OUTPUT:
+  {{
+    "result": "approved" or "rejected",
+    "feedback": "specific rejection reason, or empty string if approved"
+  }}"""

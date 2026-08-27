@@ -1,5 +1,5 @@
-from agent_state import SupervisorState, QueryAnalyzerOutput, ChildTask, WorkerOutput
-from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt
+from agent_state import SupervisorState, QueryAnalyzerOutput, ChildTask, ReviewOutput
+from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt, supervisor_review_prompt
 from agent_tool import tavily_search
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
@@ -9,23 +9,24 @@ from langgraph.types import Send
 from pydantic import BaseModel
 from typing import List
 import json
+from uuid import uuid4
 
-tool = [tavily_search]
+supervisor_agent_id = str(uuid4())
+sub_agent_id = str(uuid4())
+sub_task_id = str(uuid4())
 
 load_dotenv()
-
-llm = ChatOpenAI(model='gpt-4o-mini')
-analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
-worker_llm = llm.bind_tools([tavily_search])
-structured_worker_llm = llm.with_structured_output(WorkerOutput)
 
 # ── structured output schema for supervisor LLM only ──
 class SupervisorLLMOutput(BaseModel):
     child_tasks: List[ChildTask]
 
-
+llm = ChatOpenAI(model='gpt-4o-mini')
 supervisor_llm = llm.with_structured_output(SupervisorLLMOutput)
-
+analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
+worker_llm = llm.bind_tools([tavily_search])
+supervisor_review_llm = llm.with_structured_output(ReviewOutput)
+# refine_llm = llm.with_structured_output(ReviewOutput)
 
 # ──────────────────────────────────────────────
 # NODES
@@ -43,23 +44,61 @@ def query_analyzer(state: SupervisorState) -> dict:
     }
 
 
-def supervisor_agent(state: SupervisorState) -> dict:
-    output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
-    # print(f"Total sub-agents:--- {len(output.child_tasks)}\n\n\n")
-    # print(f"Chile Tasks:--- {output.child_tasks}")
-
-    return {
-        "child_tasks": output.child_tasks,
-        "n_agents": len(output.child_tasks),
-        "state": "assign"
-    }
-
-
 def simple_agent(state: SupervisorState) -> dict:
     response = llm.invoke(state["parent_question"])
     return {
         "final_report": response.content,
         "state": "done"
+    }
+
+
+def supervisor_agent(state: SupervisorState) -> dict:
+    
+    # ── review mode ──
+    if state.get("review_queue"):
+        approved = []
+        rejected = []
+
+        for item in state["review_queue"]:
+            parsed = json.loads(item)
+
+            review_output = supervisor_review_llm.invoke(
+                supervisor_review_prompt(
+                    task=parsed["task"],
+                    context=parsed["context"],
+                    success_criteria=parsed["success_criteria"],
+                    output=parsed["output"],
+                    attempt_number=parsed["attempt_number"]
+                )
+            )
+
+            if review_output.result == "approved":
+                approved.append(parsed["output"]["findings"])
+            else:
+                rejected.append(json.dumps({
+                    "task": parsed["task"],
+                    "context": parsed["context"],
+                    "success_criteria": parsed["success_criteria"],
+                    "attempt_number": parsed["attempt_number"],
+                    "feedback": review_output.feedback
+                }))
+
+        return {
+            "approved_outputs": approved,
+            "rejected_outputs": rejected,
+            "review_queue": [],
+            "state": "review"
+        }
+
+    # ── decompose mode ──
+    output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
+
+    return {
+        "supervisor_id": supervisor_agent_id,
+        
+        "child_tasks": output.child_tasks,
+        "n_agents": len(output.child_tasks),
+        "state": "assign"
     }
 
 
@@ -102,13 +141,15 @@ def worker(state: ChildTask) -> dict:
     # ── final response is the last message content ──
     final_output = response.content
 
-    print(f"\n\nFINAL OUTPUT: {final_output}")
-    # print(f"\n\nFINAL messages: {messages}\n\n")
-
     return {
-        "review_queue": [final_output],
+        "review_queue": [json.dumps({
+            "task": state.task,
+            "context": state.context,
+            "success_criteria": state.success_criteria.model_dump(),
+            "attempt_number": state.attempts.count + 1,
+            "output": json.loads(final_output)
+        })]
     }
-
 
 # ──────────────────────────────────────────────
 # EDGES
@@ -120,11 +161,18 @@ def router(state: SupervisorState) -> str:
     return "supervisor_agent"
 
 
-def fanout(state: SupervisorState) -> list:
-    return [
-        Send("worker", task)
-        for task in state["child_tasks"]
-    ]
+def supervisor_router(state: SupervisorState):
+    # first time — no approved, no rejected → fanout all
+    if not state.get("approved_outputs") and not state.get("rejected_outputs"):
+        return [Send("worker", task) for task in state["child_tasks"]]
+    
+    # some rejected → re-send only rejected tasks
+    if state.get("rejected_outputs"):
+        return [Send("worker", task) for task in state["child_tasks"]
+                if task.status == "rejected"]
+    
+    # all approved, nothing rejected → done
+    return END
 
 
 # ──────────────────────────────────────────────
@@ -144,10 +192,11 @@ graph.add_conditional_edges("query_analyzer", router, {
     "supervisor_agent": "supervisor_agent"
 })
 graph.add_edge("simple_agent", END)
-graph.add_conditional_edges("supervisor_agent", fanout, ["worker"])
-graph.add_edge("worker", END)
+graph.add_conditional_edges("supervisor_agent", supervisor_router)
+graph.add_edge("worker", "supervisor_agent")
 
 app = graph.compile()
+
 
 
 respo = app.invoke(
@@ -155,3 +204,5 @@ respo = app.invoke(
         "parent_question": "What is the current scientific consensus on training strategies for Large Language Models — covering pre-training, fine-tuning, RLHF, RAG vs fine-tuning tradeoffs, emergent abilities, and where the field is actually heading in 2025?"
     }
 )
+
+print(respo)
