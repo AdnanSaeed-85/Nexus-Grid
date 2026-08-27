@@ -1,8 +1,9 @@
 from __future__ import annotations
 from pydantic import BaseModel, Field, field_validator
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, TypedDict, Annotated
 from datetime import datetime, timezone
 from uuid import uuid4
+import operator
 
 
 # ──────────────────────────────────────────────
@@ -66,31 +67,15 @@ class QueryAnalyzerOutput(BaseModel):
 # SUPERVISOR STATE  (single source of truth)
 # ──────────────────────────────────────────────
 
-class SupervisorState(BaseModel):
-    # ── entry point ──────────────────────────
-    parent_question: str = Field(..., min_length=5)
-
-    # ── set by query_analyzer node ───────────
-    agent_type: Literal["simple_agent", "multi_agent"] = Field(default="simple_agent")
-    is_question: bool = Field(default=False)
-    is_research_able: bool = Field(default=False)
-
-    # ── set by supervisor_agent node ─────────
-    state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"] = Field(default="decompose")
-    child_tasks: List[ChildTask] = Field(default_factory=list)
-    n_agents: int = Field(default=0)
-
-    # ── set by worker / review nodes ─────────
-    review_queue: List[str] = Field(default_factory=list)
-    approved_outputs: List[str] = Field(default_factory=list)
-    rejected_outputs: List[str] = Field(default_factory=list)
-
-    # ── final output ─────────────────────────
-    final_report: Optional[str] = Field(default=None)
-
-    @field_validator("parent_question")
-    @classmethod
-    def question_must_be_meaningful(cls, v):
-        if len(v.strip()) < 5:
-            raise ValueError("Parent question too short")
-        return v.strip()
+class SupervisorState(TypedDict, total=False):
+    parent_question: str
+    agent_type: Literal["simple_agent", "multi_agent"]
+    is_question: bool
+    is_research_able: bool
+    state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"]
+    child_tasks: List[ChildTask]
+    n_agents: int
+    review_queue: Annotated[List[str], operator.add]
+    approved_outputs: Annotated[List[str], operator.add]
+    rejected_outputs: Annotated[List[str], operator.add]
+    final_report: Optional[str]

@@ -10,12 +10,13 @@ from pydantic import BaseModel
 from typing import List
 import json
 
+tool = [tavily_search]
+
 load_dotenv()
 
 llm = ChatOpenAI(model='gpt-4o-mini')
 analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
 worker_llm = llm.bind_tools([tavily_search])
-
 
 # ── structured output schema for supervisor LLM only ──
 class SupervisorLLMOutput(BaseModel):
@@ -30,7 +31,7 @@ supervisor_llm = llm.with_structured_output(SupervisorLLMOutput)
 # ──────────────────────────────────────────────
 
 def query_analyzer(state: SupervisorState) -> dict:
-    output = analyzer_llm.invoke(question_checker(state.parent_question))
+    output = analyzer_llm.invoke(question_checker(state["parent_question"]))
 
     agent_type = "multi_agent" if (output.is_question and output.is_research_able) else "simple_agent"
 
@@ -42,7 +43,7 @@ def query_analyzer(state: SupervisorState) -> dict:
 
 
 def supervisor_agent(state: SupervisorState) -> dict:
-    output = supervisor_llm.invoke(supervisor_agent_prompt(state.parent_question))
+    output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
 
     return {
         "child_tasks": output.child_tasks,
@@ -52,7 +53,7 @@ def supervisor_agent(state: SupervisorState) -> dict:
 
 
 def simple_agent(state: SupervisorState) -> dict:
-    response = llm.invoke(state.parent_question)
+    response = llm.invoke(state["parent_question"])
     return {
         "final_report": response.content,
         "state": "done"
@@ -60,13 +61,11 @@ def simple_agent(state: SupervisorState) -> dict:
 
 
 def worker(state: ChildTask) -> dict:
-    # ── build feedback from last attempt if any ──
     last_feedback = None
     if state.attempts.history:
         last_entry = state.attempts.history[-1]
         last_feedback = last_entry.supervisor_feedback
 
-    # ── build prompt ──
     prompt = sub_agent_prompt(
         task=state.task,
         context=state.context,
@@ -76,6 +75,8 @@ def worker(state: ChildTask) -> dict:
     )
 
     messages = [HumanMessage(content=prompt)]
+
+    # print(messages)
 
     # ── agentic loop: keep going until no more tool calls ──
     while True:
@@ -100,10 +101,13 @@ def worker(state: ChildTask) -> dict:
     # ── final response is the last message content ──
     final_output = response.content
 
+    # print(f"\n\nFINAL OUTPUT: {final_output}")
+    # print(f"\n\nFINAL messages: {messages}\n\n")
+
     return {
         "review_queue": [final_output],
-        "state": "review"
     }
+
 
 
 # ──────────────────────────────────────────────
@@ -111,7 +115,7 @@ def worker(state: ChildTask) -> dict:
 # ──────────────────────────────────────────────
 
 def router(state: SupervisorState) -> str:
-    if state.agent_type == "simple_agent":
+    if state["agent_type"] == "simple_agent":
         return "simple_agent"
     return "supervisor_agent"
 
@@ -119,7 +123,7 @@ def router(state: SupervisorState) -> str:
 def fanout(state: SupervisorState) -> list:
     return [
         Send("worker", task)
-        for task in state.child_tasks
+        for task in state["child_tasks"]
     ]
 
 
@@ -146,8 +150,11 @@ graph.add_edge("worker", END)
 app = graph.compile()
 
 
-app.invoke(
+respo = app.invoke(
     {
         "parent_question": "What is the current scientific consensus on training strategies for Large Language Models — covering pre-training, fine-tuning, RLHF, RAG vs fine-tuning tradeoffs, emergent abilities, and where the field is actually heading in 2025?"
     }
 )
+
+print(respo)
+

@@ -67,61 +67,55 @@ OUTPUT FORMAT:
   ]
 }}"""
 
-def sub_agent_prompt(
-    task: str,
-    context: str,
-    success_criteria: dict,
-    attempt_number: int,
-    previous_feedback: str | None
-) -> str:
-
+def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_number: int, previous_feedback: str | None) -> str:
     feedback_section = ""
     if previous_feedback:
         feedback_section = f"""
-PREVIOUS ATTEMPT FEEDBACK:
-Your previous attempt was rejected for the following reason:
-{previous_feedback}
-You must fix exactly what was flagged. Do not repeat the same mistake.
-"""
+        PREVIOUS ATTEMPT FEEDBACK:
+        Your previous attempt was rejected for the following reason:
+        {previous_feedback}
+        You must fix exactly what was flagged. Do not repeat the same mistake.
+        """
 
     must_cover_points = "\n".join(f"- {point}" for point in success_criteria["must_cover"])
 
     return f"""You are a specialized research agent. Your job is to investigate a specific topic deeply and honestly.
 
-You have access to a web search tool called `tavily_search`.
-Use it when:
-- The task requires current, real-world, or recent information
-- You are not confident enough in your own knowledge to answer accurately
-- The task involves specific facts, numbers, or events that could have changed
+    You have access to a web search tool called `tavily_search`.
+    Use it when:
+    - The task requires current, real-world, or recent information
+    - You are not confident enough in your own knowledge to answer accurately
+    - The task involves specific facts, numbers, or events that could have changed
 
-Do NOT use it when:
-- You can answer the task accurately and completely from your own knowledge
-- The task is conceptual or definitional and does not require up-to-date data
+    Do NOT use it when:
+    - You can answer the task accurately and completely from your own knowledge
+    - The task is conceptual or definitional and does not require up-to-date data
 
-YOUR TASK:
-{task}
+    YOUR TASK:
+    {task}
 
-WHY THIS MATTERS:
-{context}
+    WHY THIS MATTERS:
+    {context}
 
-YOU MUST COVER ALL OF THE FOLLOWING:
-{must_cover_points}
+    YOU MUST COVER ALL OF THE FOLLOWING:
+    {must_cover_points}
 
-YOU MUST NOT:
-{success_criteria["must_not"]}
-{feedback_section}
-RULES:
-- Only state what you actually know with confidence — do not invent facts, names, numbers, or sources
-- If something is genuinely debated or uncertain, represent both sides honestly and label it as such
-- If you could not find or reason about something, state it clearly under limitations — do not fill gaps with guesses
-- Do not fabricate citations, paper titles, author names, or benchmark results
-- This is attempt {attempt_number} of a maximum of 5
-- Return ONLY valid JSON — no markdown, no preamble, no extra text
+    YOU MUST NOT:
+    {success_criteria["must_not"]}
+    {feedback_section}
+    
+    RULES:
+    - Only state what you actually know with confidence — do not invent facts, names, numbers, or sources
+    - If something is genuinely debated or uncertain, represent both sides honestly and label it as such
+    - If you could not find or reason about something, state it clearly under limitations — do not fill gaps with guesses
+    - Do not fabricate citations, paper titles, author names, or benchmark results
+    - This is attempt {attempt_number} of a maximum of 5
+    - Return ONLY valid JSON — no markdown, no preamble, no extra text
 
-OUTPUT FORMAT:
-{{
-  "findings": "your full detailed research findings as a single string",
-  "confidence_score": 0-99,
-  "limitations": ["things you could not verify or did not have enough information about"],
-  "contradictions": ["conflicting evidence or genuinely debated points you encountered"]
-}}"""
+    OUTPUT FORMAT:
+    {{
+      "findings": "your full detailed research findings as a single string",
+      "confidence_score": 0-99,
+      "limitations": ["things you could not verify or did not have enough information about"],
+      "contradictions": ["conflicting evidence or genuinely debated points you encountered"]
+    }}"""
