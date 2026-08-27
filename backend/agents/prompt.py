@@ -37,35 +37,22 @@ PARENT QUESTION:
 {parent_question}
 
 INSTRUCTIONS:
-1. Read the question carefully and identify its key dimensions
+1. Read the question carefully and identify its key dimensions from every perspective which will help to make perfect answer
 2. For each dimension, create one child task with:
    - task: a precise, self-contained research instruction with clear scope boundaries
    - context: why this dimension is necessary to answer the full question
    - success_criteria:
-       - must_cover: a list of specific concrete points the agent must address
+       - must_cover: a list of specific concrete points the sub-agent must address and should be keep in-mind while answering
        - must_not: what the agent must avoid (e.g. vague generalities, going off-topic)
 
 RULES:
-- Create between 4 and 6 child tasks — no more, no less
+- Create as many child tasks as the question genuinely requires — no artificial splitting, no forced merging
 - Each task must be fully independent with zero overlap with other tasks
 - Tasks must be specific and scoped — a vague task will produce a vague result
 - Do NOT answer, summarize, or research the question yourself
 - Do NOT reference sources, papers, or external material
 - Return ONLY valid JSON — no markdown, no preamble, no explanation
-
-OUTPUT FORMAT:
-{{
-  "child_tasks": [
-    {{
-      "task": "...",
-      "context": "...",
-      "success_criteria": {{
-        "must_cover": ["...", "..."],
-        "must_not": "..."
-      }}
-    }}
-  ]
-}}"""
+"""
 
 def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_number: int, previous_feedback: str | None) -> str:
     feedback_section = ""

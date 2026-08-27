@@ -44,6 +44,8 @@ def query_analyzer(state: SupervisorState) -> dict:
 
 def supervisor_agent(state: SupervisorState) -> dict:
     output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
+    print(f"Total sub-agents:--- {len(output.child_tasks)}\n\n\n")
+    print(f"Chile Tasks:--- {output.child_tasks}")
 
     return {
         "child_tasks": output.child_tasks,
@@ -155,6 +157,3 @@ respo = app.invoke(
         "parent_question": "What is the current scientific consensus on training strategies for Large Language Models — covering pre-training, fine-tuning, RLHF, RAG vs fine-tuning tradeoffs, emergent abilities, and where the field is actually heading in 2025?"
     }
 )
-
-print(respo)
-
