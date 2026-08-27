@@ -61,7 +61,7 @@ def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_nu
         PREVIOUS ATTEMPT FEEDBACK:
         Your previous attempt was rejected for the following reason:
         {previous_feedback}
-        You must fix exactly what was flagged. Do not repeat the same mistake.
+        Read your previous feedback and keep it mind so You must fix exactly what was flagged. Do not repeat the same mistake.
         """
 
     must_cover_points = "\n".join(f"- {point}" for point in success_criteria["must_cover"])
@@ -75,8 +75,9 @@ def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_nu
     - The task involves specific facts, numbers, or events that could have changed
 
     Do NOT use it when:
-    - You can answer the task accurately and completely from your own knowledge
+    - You can answer the task accurately and completely from your own parametric knowledge
     - The task is conceptual or definitional and does not require up-to-date data
+    - But make sure answer from your knowledge should be 100 percent correct, never hallucinate
 
     YOUR TASK:
     {task}
@@ -98,11 +99,44 @@ def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_nu
     - Do not fabricate citations, paper titles, author names, or benchmark results
     - This is attempt {attempt_number} of a maximum of 5
     - Return ONLY valid JSON — no markdown, no preamble, no extra text
+    
+    """
 
-    OUTPUT FORMAT:
-    {{
-      "findings": "your full detailed research findings as a single string",
-      "confidence_score": 0-99,
-      "limitations": ["things you could not verify or did not have enough information about"],
-      "contradictions": ["conflicting evidence or genuinely debated points you encountered"]
-    }}"""
+
+
+
+def reviewer_prompt(task: str, context: str, success_criteria: dict, findings: str) -> str:
+  must_cover_points = "\n".join(f"- {point}" for point in success_criteria["must_cover"])
+
+  return f"""You are a strict research reviewer. Your job is to evaluate whether a worker's findings meet the required standards.
+
+ORIGINAL TASK:
+{task}
+
+WHY THIS MATTERS:
+{context}
+
+SUCCESS CRITERIA:
+The findings MUST cover all of the following:
+{must_cover_points}
+
+The findings MUST NOT:
+{success_criteria["must_not"]}
+
+WORKER FINDINGS:
+{findings}
+
+EVALUATE:
+- Does the findings cover every must_cover point?
+- Does it avoid what it must_not do?
+- Is it specific and grounded — no vague claims, no invented facts?
+
+RULES:
+- Be strict — partial coverage is a rejection
+- Return ONLY valid JSON — no markdown, no preamble, no explanation
+
+OUTPUT FORMAT:
+{{
+  "result": "approved" or "rejected",
+  "feedback": "if rejected, explain exactly what is missing or wrong. if approved, leave empty string."
+}}"""

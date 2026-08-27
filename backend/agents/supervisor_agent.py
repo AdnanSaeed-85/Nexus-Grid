@@ -44,8 +44,8 @@ def query_analyzer(state: SupervisorState) -> dict:
 
 def supervisor_agent(state: SupervisorState) -> dict:
     output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
-    print(f"Total sub-agents:--- {len(output.child_tasks)}\n\n\n")
-    print(f"Chile Tasks:--- {output.child_tasks}")
+    # print(f"Total sub-agents:--- {len(output.child_tasks)}\n\n\n")
+    # print(f"Chile Tasks:--- {output.child_tasks}")
 
     return {
         "child_tasks": output.child_tasks,
@@ -78,8 +78,6 @@ def worker(state: ChildTask) -> dict:
 
     messages = [HumanMessage(content=prompt)]
 
-    # print(messages)
-
     # ── agentic loop: keep going until no more tool calls ──
     while True:
         response = worker_llm.invoke(messages)
@@ -103,13 +101,12 @@ def worker(state: ChildTask) -> dict:
     # ── final response is the last message content ──
     final_output = response.content
 
-    # print(f"\n\nFINAL OUTPUT: {final_output}")
+    print(f"\n\nFINAL OUTPUT: {final_output}")
     # print(f"\n\nFINAL messages: {messages}\n\n")
 
     return {
         "review_queue": [final_output],
     }
-
 
 
 # ──────────────────────────────────────────────
@@ -145,8 +142,8 @@ graph.add_conditional_edges("query_analyzer", router, {
     "simple_agent": "simple_agent",
     "supervisor_agent": "supervisor_agent"
 })
-graph.add_conditional_edges("supervisor_agent", fanout, ["worker"])
 graph.add_edge("simple_agent", END)
+graph.add_conditional_edges("supervisor_agent", fanout, ["worker"])
 graph.add_edge("worker", END)
 
 app = graph.compile()
