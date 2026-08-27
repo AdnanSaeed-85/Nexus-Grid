@@ -62,6 +62,15 @@ class QueryAnalyzerOutput(BaseModel):
     is_research_able: bool = Field(default=False)
     agent_type: Literal["simple_agent", "multi_agent"] = Field(default="simple_agent")
 
+# ──────────────────────────────────────────────
+# WORKER OUTPUT STATE
+# ──────────────────────────────────────────────
+
+class WorkerOutput(BaseModel):
+    findings: str = Field(...)
+    confidence_score: int = Field(..., ge=0, le=99)
+    limitations: List[str] = Field(default_factory=list)
+    contradictions: List[str] = Field(default_factory=list)
 
 # ──────────────────────────────────────────────
 # SUPERVISOR STATE  (single source of truth)

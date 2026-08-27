@@ -99,44 +99,11 @@ def sub_agent_prompt(task: str, context: str, success_criteria: dict, attempt_nu
     - Do not fabricate citations, paper titles, author names, or benchmark results
     - This is attempt {attempt_number} of a maximum of 5
     - Return ONLY valid JSON — no markdown, no preamble, no extra text
-    
-    """
 
-
-
-
-def reviewer_prompt(task: str, context: str, success_criteria: dict, findings: str) -> str:
-  must_cover_points = "\n".join(f"- {point}" for point in success_criteria["must_cover"])
-
-  return f"""You are a strict research reviewer. Your job is to evaluate whether a worker's findings meet the required standards.
-
-ORIGINAL TASK:
-{task}
-
-WHY THIS MATTERS:
-{context}
-
-SUCCESS CRITERIA:
-The findings MUST cover all of the following:
-{must_cover_points}
-
-The findings MUST NOT:
-{success_criteria["must_not"]}
-
-WORKER FINDINGS:
-{findings}
-
-EVALUATE:
-- Does the findings cover every must_cover point?
-- Does it avoid what it must_not do?
-- Is it specific and grounded — no vague claims, no invented facts?
-
-RULES:
-- Be strict — partial coverage is a rejection
-- Return ONLY valid JSON — no markdown, no preamble, no explanation
-
-OUTPUT FORMAT:
-{{
-  "result": "approved" or "rejected",
-  "feedback": "if rejected, explain exactly what is missing or wrong. if approved, leave empty string."
-}}"""
+    OUTPUT FORMAT:
+    {{
+      "findings": "your full detailed research findings as a single string",
+      "confidence_score": 0-99,
+      "limitations": ["things you could not verify or did not have enough information about"],
+      "contradictions": ["conflicting evidence or genuinely debated points you encountered"]
+    }}"""

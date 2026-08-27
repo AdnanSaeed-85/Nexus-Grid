@@ -1,4 +1,4 @@
-from agent_state import SupervisorState, QueryAnalyzerOutput, ChildTask
+from agent_state import SupervisorState, QueryAnalyzerOutput, ChildTask, WorkerOutput
 from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt
 from agent_tool import tavily_search
 from dotenv import load_dotenv
@@ -17,6 +17,7 @@ load_dotenv()
 llm = ChatOpenAI(model='gpt-4o-mini')
 analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
 worker_llm = llm.bind_tools([tavily_search])
+structured_worker_llm = llm.with_structured_output(WorkerOutput)
 
 # ── structured output schema for supervisor LLM only ──
 class SupervisorLLMOutput(BaseModel):
