@@ -1,13 +1,4 @@
-from agent_state import (
-    SupervisorState,
-    QueryAnalyzerOutput,
-    ChildTask,
-    ChildTaskDraft,
-    ReviewOutput,
-    AttemptEntry,
-    Attempts,
-    WorkerState,
-)
+from agent_state import (SupervisorState, QueryAnalyzerOutput, ChildTask, ChildTaskDraft, ReviewOutput, AttemptEntry, Attempts, WorkerState)
 from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt, supervisor_review_prompt
 from agent_tool import tavily_search
 from dotenv import load_dotenv
@@ -33,7 +24,6 @@ supervisor_llm = llm.with_structured_output(SupervisorLLMOutput)
 analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
 worker_llm = llm.bind_tools([tavily_search])
 supervisor_review_llm = llm.with_structured_output(ReviewOutput)
-# refine_llm = llm.with_structured_output(ReviewOutput)
 
 # ──────────────────────────────────────────────
 # NODES
