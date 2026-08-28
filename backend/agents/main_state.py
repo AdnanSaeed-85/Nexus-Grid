@@ -15,7 +15,16 @@ class QueryAnalyzerOutput(BaseModel):
 
 
 # ──────────────────────────────────────────────
-# ATTEMPT HISTORY
+# SUCCESS CRITERIA
+# ──────────────────────────────────────────────
+
+class SuccessCriteria(BaseModel):
+    must_cover: List[str] = Field(..., min_length=1)
+    must_not: str = Field(...)
+
+
+# ──────────────────────────────────────────────
+# ATTEMPTS
 # ──────────────────────────────────────────────
 
 class AttemptEntry(BaseModel):
@@ -35,25 +44,7 @@ class Attempts(BaseModel):
         if v > 5:
             raise ValueError("Max retry limit of 5 reached")
         return v
-
-
-# ──────────────────────────────────────────────
-# SUCCESS CRITERIA
-# ──────────────────────────────────────────────
-
-class SuccessCriteria(BaseModel):
-    must_cover: List[str] = Field(..., min_length=1)
-    must_not: str = Field(...)
-
-
-# ──────────────────────────────────────────────
-# ReviewOutput STATE
-# ──────────────────────────────────────────────
-
-class ReviewOutput(BaseModel):
-    result: Literal["approved", "rejected"]
-    feedback: str
-
+    
 
 # ──────────────────────────────────────────────
 # CHILD TASK
@@ -70,23 +61,23 @@ class ChildTask(BaseModel):
     final_output: Optional[str] = Field(default=None)
 
 
+class ChildTaskDraft(BaseModel):
+    task: str = Field(...)
+    context: str = Field(...)
+    success_criteria: SuccessCriteria = Field(...)
+
+
 # ──────────────────────────────────────────────
 # SUPERVISOR STATE  (single source of truth)
 # ──────────────────────────────────────────────
 
 class SupervisorState(TypedDict, total=False):
     supervisor_id: str
-    child_task_id: List[str]
-    sub_agent_id: List[str]
     parent_question: str
-    agent_type: Literal["simple_agent", "multi_agent"]
     is_question: bool
     is_research_able: bool
-    state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"]
+    agent_type: Literal["simple_agent", "multi_agent"]
     child_tasks: List[ChildTask]
+    state: Literal["decompose", "assign", "waiting", "review", "synthesize", "validate", "done"]
     n_agents: int
-    review_queue: Annotated[List[str], operator.add]
-    approved_outputs: Annotated[List[str], operator.add]
-    rejected_outputs: Annotated[List[str], operator.add]
-    final_report: Optional[str]
-
+    final_report: str

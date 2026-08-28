@@ -95,7 +95,6 @@ def supervisor_agent(state: SupervisorState) -> dict:
 
     return {
         "supervisor_id": supervisor_agent_id,
-        
         "child_tasks": output.child_tasks,
         "n_agents": len(output.child_tasks),
         "state": "assign"

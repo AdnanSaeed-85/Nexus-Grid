@@ -2,31 +2,39 @@
 #                           ALL IMPORTS + IDs
 # ======================================================================
 
-from agent_state import SupervisorState, QueryAnalyzerOutput
-from prompt import question_checker
+from main_state import SupervisorState, QueryAnalyzerOutput, ChildTask, ChildTaskDraft
+from prompt import question_checker, supervisor_agent_prompt
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langgraph.graph import START, END, StateGraph
 from uuid import uuid4
+from pydantic import BaseModel
+from typing import List
+
 
 supervisor_agent_id = str(uuid4())
-sub_agent_id = str(uuid4())
-sub_task_id = str(uuid4())
 
 load_dotenv()
 
 
 # ======================================================================
-#                              LLM BINDES
+#                               LOAD LLMs
 # ======================================================================
 
 llm = ChatOpenAI(model='gpt-4o-mini')
 analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
 
+class ChildTasksOutput(BaseModel):
+    child_tasks: List[ChildTaskDraft]
+
+child_llm = llm.with_structured_output(ChildTasksOutput)
+
+
 # ======================================================================
 #                                 NODES
 # ======================================================================
 
+#----------------- QUERY ANALYZER NODE
 def query_analyzer(state: SupervisorState) -> dict:
     output = analyzer_llm.invoke(question_checker(state["parent_question"]))
 
@@ -38,17 +46,33 @@ def query_analyzer(state: SupervisorState) -> dict:
         "agent_type": agent_type
     }
 
-
+#----------------- SIMPLE AGENT NODE
 def simple_agent(state: SupervisorState) -> dict:
-    response = llm.invoke(state["parent_question"])
+    output = llm.invoke(state["parent_question"])
     return {
-        "final_report": response.content,
+        "final_report": output.content,
         "state": "done"
     }
 
-
+#----------------- SUPERVISOR AGENT NODE
 def supervisor_agent(state: SupervisorState):
-    print("it's me SUPERVISOR AGENT")
+    output = child_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
+    child_tasks = [ ChildTask( child_task_id=str(uuid4()), sub_agent_id=str(uuid4()),
+                              task=task.task,
+                              context=task.context,
+                              success_criteria=task.success_criteria) for task in output.child_tasks ]
+
+    return {
+        "supervisor_id": supervisor_agent_id,
+        "child_tasks": child_tasks,
+        "n_agents": len(child_tasks),
+        "state": "assign"
+    }
+
+#----------------- SUB AGENT NODE
+def sub_agent(state: SupervisorState):
+    pass
+
 
 
 # ======================================================================
@@ -96,3 +120,5 @@ agent = app.invoke(
 # ======================================================================
 #                              PRINTING STAGE
 # ======================================================================
+
+print(agent)
