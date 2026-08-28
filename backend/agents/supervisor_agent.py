@@ -31,22 +31,18 @@ supervisor_review_llm = llm.with_structured_output(ReviewOutput)
 
 def query_analyzer(state: SupervisorState) -> dict:
     output = analyzer_llm.invoke(question_checker(state["parent_question"]))
-
     agent_type = "multi_agent" if (output.is_question and output.is_research_able) else "simple_agent"
-
     return {
         "is_question": output.is_question,
         "is_research_able": output.is_research_able,
-        "agent_type": agent_type
-    }
+        "agent_type": agent_type}
 
 
 def simple_agent(state: SupervisorState) -> dict:
     response = llm.invoke(state["parent_question"])
     return {
         "final_report": response.content,
-        "state": "done"
-    }
+        "state": "done"}
 
 
 def supervisor_agent(state: SupervisorState) -> dict:
