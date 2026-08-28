@@ -70,6 +70,16 @@ class ChildTask(BaseModel):
     final_output: Optional[str] = Field(default=None)
 
 
+class ChildTaskDraft(BaseModel):
+    task: str = Field(...)
+    context: str = Field(...)
+    success_criteria: SuccessCriteria = Field(...)
+
+
+class WorkerState(TypedDict):
+    child_task: ChildTask
+
+
 # ──────────────────────────────────────────────
 # SUPERVISOR STATE  (single source of truth)
 # ──────────────────────────────────────────────
@@ -86,6 +96,7 @@ class SupervisorState(TypedDict, total=False):
     child_tasks: List[ChildTask]
     n_agents: int
     review_queue: Annotated[List[str], operator.add]
+    reviewed_count: int
     approved_outputs: Annotated[List[str], operator.add]
     rejected_outputs: Annotated[List[str], operator.add]
     final_report: Optional[str]

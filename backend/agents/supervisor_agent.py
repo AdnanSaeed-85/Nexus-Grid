@@ -1,4 +1,13 @@
-from agent_state import SupervisorState, QueryAnalyzerOutput, ChildTask, ReviewOutput
+from agent_state import (
+    SupervisorState,
+    QueryAnalyzerOutput,
+    ChildTask,
+    ChildTaskDraft,
+    ReviewOutput,
+    AttemptEntry,
+    Attempts,
+    WorkerState,
+)
 from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt, supervisor_review_prompt
 from agent_tool import tavily_search
 from dotenv import load_dotenv
@@ -12,14 +21,12 @@ import json
 from uuid import uuid4
 
 supervisor_agent_id = str(uuid4())
-sub_agent_id = str(uuid4())
-sub_task_id = str(uuid4())
 
 load_dotenv()
 
 # ── structured output schema for supervisor LLM only ──
 class SupervisorLLMOutput(BaseModel):
-    child_tasks: List[ChildTask]
+    child_tasks: List[ChildTaskDraft]
 
 llm = ChatOpenAI(model='gpt-4o-mini')
 supervisor_llm = llm.with_structured_output(SupervisorLLMOutput)
@@ -55,11 +62,15 @@ def simple_agent(state: SupervisorState) -> dict:
 def supervisor_agent(state: SupervisorState) -> dict:
     
     # ── review mode ──
-    if state.get("review_queue"):
+    review_queue = state.get("review_queue", [])
+    reviewed_count = state.get("reviewed_count", 0)
+    if len(review_queue) > reviewed_count:
         approved = []
         rejected = []
+        child_tasks = list(state["child_tasks"])
+        tasks_by_id = {task.child_task_id: task for task in child_tasks}
 
-        for item in state["review_queue"]:
+        for item in review_queue[reviewed_count:]:
             parsed = json.loads(item)
 
             review_output = supervisor_review_llm.invoke(
@@ -71,6 +82,28 @@ def supervisor_agent(state: SupervisorState) -> dict:
                     attempt_number=parsed["attempt_number"]
                 )
             )
+
+            task = tasks_by_id[parsed["child_task_id"]]
+            attempt = AttemptEntry(
+                attempt_number=parsed["attempt_number"],
+                supervisor_feedback=(
+                    review_output.feedback
+                    if review_output.result == "rejected"
+                    else None
+                ),
+                result=review_output.result,
+            )
+            updated_task = task.model_copy(
+                update={
+                    "status": review_output.result,
+                    "attempts": Attempts(
+                        count=parsed["attempt_number"],
+                        history=[*task.attempts.history, attempt],
+                    ),
+                    "final_output": json.dumps(parsed["output"]),
+                }
+            )
+            tasks_by_id[task.child_task_id] = updated_task
 
             if review_output.result == "approved":
                 approved.append(parsed["output"]["findings"])
@@ -86,32 +119,44 @@ def supervisor_agent(state: SupervisorState) -> dict:
         return {
             "approved_outputs": approved,
             "rejected_outputs": rejected,
-            "review_queue": [],
+            "child_tasks": list(tasks_by_id.values()),
+            "reviewed_count": len(review_queue),
             "state": "review"
         }
 
     # ── decompose mode ──
     output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
+    child_tasks = [
+        ChildTask(
+            child_task_id=str(uuid4()),
+            sub_agent_id=str(uuid4()),
+            task=task.task,
+            context=task.context,
+            success_criteria=task.success_criteria,
+        )
+        for task in output.child_tasks
+    ]
 
     return {
         "supervisor_id": supervisor_agent_id,
-        "child_tasks": output.child_tasks,
-        "n_agents": len(output.child_tasks),
+        "child_tasks": child_tasks,
+        "n_agents": len(child_tasks),
         "state": "assign"
     }
 
 
-def worker(state: ChildTask) -> dict:
+def worker(state: WorkerState) -> dict:
+    child_task = state["child_task"]
     last_feedback = None
-    if state.attempts.history:
-        last_entry = state.attempts.history[-1]
+    if child_task.attempts.history:
+        last_entry = child_task.attempts.history[-1]
         last_feedback = last_entry.supervisor_feedback
 
     prompt = sub_agent_prompt(
-        task=state.task,
-        context=state.context,
-        success_criteria=state.success_criteria.model_dump(),
-        attempt_number=state.attempts.count + 1,
+        task=child_task.task,
+        context=child_task.context,
+        success_criteria=child_task.success_criteria.model_dump(),
+        attempt_number=child_task.attempts.count + 1,
         previous_feedback=last_feedback
     )
 
@@ -142,10 +187,12 @@ def worker(state: ChildTask) -> dict:
 
     return {
         "review_queue": [json.dumps({
-            "task": state.task,
-            "context": state.context,
-            "success_criteria": state.success_criteria.model_dump(),
-            "attempt_number": state.attempts.count + 1,
+            "child_task_id": child_task.child_task_id,
+            "sub_agent_id": child_task.sub_agent_id,
+            "task": child_task.task,
+            "context": child_task.context,
+            "success_criteria": child_task.success_criteria.model_dump(),
+            "attempt_number": child_task.attempts.count + 1,
             "output": json.loads(final_output)
         })]
     }
@@ -163,12 +210,18 @@ def router(state: SupervisorState) -> str:
 def supervisor_router(state: SupervisorState):
     # first time — no approved, no rejected → fanout all
     if not state.get("approved_outputs") and not state.get("rejected_outputs"):
-        return [Send("worker", task) for task in state["child_tasks"]]
+        return [
+            Send("worker", {"child_task": task})
+            for task in state["child_tasks"]
+        ]
     
     # some rejected → re-send only rejected tasks
-    if state.get("rejected_outputs"):
-        return [Send("worker", task) for task in state["child_tasks"]
-                if task.status == "rejected"]
+    rejected_tasks = [
+        task for task in state.get("child_tasks", [])
+        if task.status == "rejected" and task.attempts.count < 5
+    ]
+    if rejected_tasks:
+        return [Send("worker", {"child_task": task}) for task in rejected_tasks]
     
     # all approved, nothing rejected → done
     return END
