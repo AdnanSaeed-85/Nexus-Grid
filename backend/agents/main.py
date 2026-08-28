@@ -21,14 +21,13 @@ load_dotenv()
 #                               LOAD LLMs
 # ======================================================================
 
-llm = ChatOpenAI(model='gpt-4o-mini')
-analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
-
 class ChildTasksOutput(BaseModel):
     child_tasks: List[ChildTaskDraft]
 
+llm = ChatOpenAI(model='gpt-4o-mini')
+analyzer_llm = llm.with_structured_output(QueryAnalyzerOutput)
 child_llm = llm.with_structured_output(ChildTasksOutput)
-
+supervisor_agent = llm.with_structured_output(SupervisorState)
 
 # ======================================================================
 #                                 NODES
@@ -71,7 +70,7 @@ def supervisor_agent(state: SupervisorState):
 
 #----------------- SUB AGENT NODE
 def sub_agent(state: SupervisorState):
-    pass
+    output = supervisor_agent.invoke()
 
 
 
