@@ -50,7 +50,6 @@ def simple_agent(state: SupervisorState) -> dict:
 
 
 def supervisor_agent(state: SupervisorState) -> dict:
-    
     # ── review mode ──
     review_queue = state.get("review_queue", [])
     reviewed_count = state.get("reviewed_count", 0)
@@ -106,7 +105,13 @@ def supervisor_agent(state: SupervisorState) -> dict:
                     "feedback": review_output.feedback
                 }))
 
-        return {
+        approved_outputs = [*state.get("approved_outputs", []), *approved]
+        retryable_tasks = [
+            task for task in tasks_by_id.values()
+            if task.status == "rejected" and task.attempts.count < 5
+        ]
+
+        result = {
             "approved_outputs": approved,
             "rejected_outputs": rejected,
             "child_tasks": list(tasks_by_id.values()),
@@ -114,18 +119,30 @@ def supervisor_agent(state: SupervisorState) -> dict:
             "state": "review"
         }
 
+        if not retryable_tasks:
+            heading = llm.invoke(
+                "Return only a short 2-3 word heading for these research findings:\n"
+                + "\n".join(approved_outputs)
+            )
+            result["final_report"] = (
+                f"{heading.content}\n\n"
+                f"{state['parent_question']}\n\n"
+                f"{chr(10).join(approved_outputs)}"
+            )
+            result["state"] = "done"
+
+        return result
+
     # ── decompose mode ──
+    if state.get("child_tasks"):
+        return {"state": "assign"}
+
     output = supervisor_llm.invoke(supervisor_agent_prompt(state["parent_question"]))
     child_tasks = [
-        ChildTask(
-            child_task_id=str(uuid4()),
-            sub_agent_id=str(uuid4()),
-            task=task.task,
-            context=task.context,
-            success_criteria=task.success_criteria,
-        )
-        for task in output.child_tasks
-    ]
+        ChildTask(child_task_id=str(uuid4()), sub_agent_id=str(uuid4()),
+                  task=task.task,
+                  context=task.context,
+                  success_criteria=task.success_criteria) for task in output.child_tasks]
 
     return {
         "supervisor_id": supervisor_agent_id,
@@ -198,22 +215,18 @@ def router(state: SupervisorState) -> str:
 
 
 def supervisor_router(state: SupervisorState):
-    # first time — no approved, no rejected → fanout all
-    if not state.get("approved_outputs") and not state.get("rejected_outputs"):
-        return [
-            Send("worker", {"child_task": task})
-            for task in state["child_tasks"]
-        ]
-    
-    # some rejected → re-send only rejected tasks
-    rejected_tasks = [
+    if state.get("final_report"):
+        return END
+
+    pending_tasks = [
         task for task in state.get("child_tasks", [])
-        if task.status == "rejected" and task.attempts.count < 5
+        if task.status == "pending"
     ]
-    if rejected_tasks:
-        return [Send("worker", {"child_task": task}) for task in rejected_tasks]
+    rejected_tasks = [task for task in state.get("child_tasks", []) if task.status == "rejected" and task.attempts.count < 5]
+    tasks_to_send = [*pending_tasks, *rejected_tasks]
+    if tasks_to_send:
+        return [Send("worker", {"child_task": task}) for task in tasks_to_send]
     
-    # all approved, nothing rejected → done
     return END
 
 
@@ -247,4 +260,4 @@ respo = app.invoke(
     }
 )
 
-print(respo)
+print(respo.get("final_report"))
