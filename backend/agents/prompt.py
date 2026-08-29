@@ -145,3 +145,13 @@ def supervisor_review_prompt(task: str, context: str, success_criteria: dict, ou
     "result": "approved" or "rejected",
     "feedback": "specific rejection reason, or empty string if approved"
   }}"""
+
+
+def report_generator(final_output: str):
+    return f"""
+You are report generator agent you task is to just read all final outputs and return complete output
+- in complete output you job is to cover each and every detail from provided final_output
+
+{final_output}
+
+"""

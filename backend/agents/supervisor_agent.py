@@ -1,5 +1,5 @@
 from agent_state import (SupervisorState, QueryAnalyzerOutput, ChildTask, ChildTaskDraft, ReviewOutput, AttemptEntry, Attempts, WorkerState)
-from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt, supervisor_review_prompt
+from prompt import question_checker, supervisor_agent_prompt, sub_agent_prompt, supervisor_review_prompt, report_generator
 from agent_tool import tavily_search
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
