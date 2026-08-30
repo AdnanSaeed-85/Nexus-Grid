@@ -10,6 +10,8 @@ from pydantic import BaseModel
 from typing import List
 import json
 from uuid import uuid4
+from fpdf import FPDF
+
 
 supervisor_agent_id = str(uuid4())
 
@@ -111,6 +113,16 @@ def supervisor_agent(state: SupervisorState) -> dict:
             "reviewed_count": len(review_queue),
             "state": "review"
         }
+
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+
+        for item in approved_outputs:
+            pdf.multi_cell(0, 10, item)
+            pdf.ln()
+
+        pdf.output("approved_outputs.pdf")
 
         if not retryable_tasks:
             heading = llm.invoke(
