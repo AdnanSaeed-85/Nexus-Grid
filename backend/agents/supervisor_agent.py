@@ -114,18 +114,15 @@ def supervisor_agent(state: SupervisorState) -> dict:
 
         if not retryable_tasks:
             heading = llm.invoke(
-                "Return only a short 2-3 word heading for these research findings:\n"
-                + "\n".join(approved_outputs)
-            )
+                "Return only a short 2-3 word heading for these research findings:\n" + "\n".join(approved_outputs))
             result["final_report"] = (
                 f"{heading.content}\n\n"
                 f"{state['parent_question']}\n\n"
                 f"{chr(10).join(approved_outputs)}"
             )
             result["state"] = "done"
-
-            summ = llm.invoke(report_generator(state['final_report']))
-            
+            summary = llm.invoke(report_generator(result['final_report']))
+            result["summarized"] = f"{state['parent_question']}\n\n + {summary.content}"
 
         return result
 
@@ -256,4 +253,4 @@ respo = app.invoke(
     }
 )
 
-print(respo.get("final_report"))
+print(respo.get("summarized"))

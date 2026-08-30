@@ -148,37 +148,34 @@ def supervisor_review_prompt(task: str, context: str, success_criteria: dict, ou
 
 
 
-def report_generator(parent_question: str, final_output: str) -> str:
+def report_generator(final_output: str) -> str:
     return f"""
 You are the final report synthesis agent.
 
-Your task is to turn the collected research findings into a polished, complete final answer for the user's original question.
-
-PARENT QUESTION:
-{parent_question}
+Your task is to transform the collected research findings into a polished, complete final report.
 
 COLLECTED FINDINGS:
 {final_output}
 
 INSTRUCTIONS:
-1. Start with a clear main heading that matches the topic of the question.
-2. Answer the original question directly and completely.
-3. Use the findings as evidence, but do not blindly repeat them line by line.
-4. Combine related ideas into a coherent, readable final report.
-5. Add sub-headings only when they improve structure and clarity.
+1. Start with a clear main heading that matches the topic.
+2. Write a complete final answer based only on the provided findings.
+3. Do not blindly copy the findings line by line; synthesize them into a coherent narrative.
+4. Combine related points and remove repetition.
+5. Add sub-headings only when they improve clarity and structure.
 6. Cover all important dimensions, including:
    - key facts
    - main arguments or consensus
    - trade-offs and comparisons
    - limitations, uncertainty, or disagreements
    - practical conclusion / likely direction
-7. If some parts are uncertain or missing, state that honestly without inventing information.
+7. If some information is uncertain or incomplete, state that honestly without inventing facts.
 8. Keep the tone clear, professional, and well-organized.
 9. Output only the final report in polished prose.
-10. Do not include analysis notes, meta-comments, or raw lists unless they improve readability.
+10. Do not include analysis notes, reminders, or meta-commentary.
 
 FORMAT:
 - Main heading
 - Optional sub-headings
-- Full final answer
+- Final report text
 """
