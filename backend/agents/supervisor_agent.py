@@ -72,13 +72,9 @@ def supervisor_agent(state: SupervisorState) -> dict:
             task = tasks_by_id[parsed["child_task_id"]]
             attempt = AttemptEntry(
                 attempt_number=parsed["attempt_number"],
-                supervisor_feedback=(
-                    review_output.feedback
-                    if review_output.result == "rejected"
-                    else None
-                ),
-                result=review_output.result,
-            )
+                supervisor_feedback=(review_output.feedback if review_output.result == "rejected" else None),
+                result=review_output.result)
+            
             updated_task = task.model_copy(
                 update={
                     "status": review_output.result,
