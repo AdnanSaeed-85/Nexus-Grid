@@ -100,4 +100,5 @@ class SupervisorState(TypedDict, total=False):
     approved_outputs: Annotated[List[str], operator.add]
     rejected_outputs: Annotated[List[str], operator.add]
     final_report: Optional[str]
+    summarized: Optional[str]
 

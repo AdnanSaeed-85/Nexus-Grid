@@ -124,6 +124,9 @@ def supervisor_agent(state: SupervisorState) -> dict:
             )
             result["state"] = "done"
 
+            summ = llm.invoke(report_generator(state['final_report']))
+            
+
         return result
 
     # ── decompose mode ──
