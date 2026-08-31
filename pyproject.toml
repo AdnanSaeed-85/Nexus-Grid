@@ -10,6 +10,7 @@ dependencies = [
     "langchain-core>=1.6.0",
     "langchain-openai>=1.6.0",
     "langgraph>=1.2.11",
+    "psycopg2>=2.9.12",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.3",
     "tavily>=1.1.0",
